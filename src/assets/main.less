@@ -1,0 +1,74 @@
+/* 公共样式  */
+html {
+  overflow: auto;
+}
+body {
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  // text-align: center;
+  color: #2c3e50;
+  overflow: auto;
+  font-family: Helvetica Neue,Helvetica,PingFang SC,Hiragino Sans GB,Microsoft YaHei,SimSun,sans-serif;
+  min-height: 100vh;
+}
+
+body, div, h1, h2, h3, h4, p, ul, ol, form, dl, dt, dd {
+  margin: 0;
+}
+
+h1, h2, h3, h4 {
+  font-size: 1em;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: inherit;
+  font-weight: 500;
+  line-height: 1.1;
+  color: inherit;
+}
+
+ul {
+  padding: 0;
+  list-style: none;
+}
+
+button[disabled], html input[disabled] {
+  cursor: default;
+}
+
+button, html input[type="button"], input[type="reset"], input[type="submit"] {
+  -webkit-appearance: button;
+  cursor: pointer;
+}
+
+/* 全局通用的 router-view 过渡效果 */
+.fade-transition {
+  transition: opacity .1s ease;
+}
+
+.fade-enter, .fade-leave {
+  opacity: 0;
+}
+
+
+/* 单行省略 */
+.txt-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: break-all;
+}
+
+/* 不可选中 */
+.unselected {
+  user-select: none;
+}
+
+*, *:before, *:after {
+  box-sizing: border-box;
+}
+
+.hide {
+  display: none;
+}
