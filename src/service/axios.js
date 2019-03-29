@@ -3,22 +3,23 @@ axios.defaults.headers.post['Content-Type'] = 'application/json;charset=UTF-8'
 
 const xhr = ({
   url,
+  method = 'post',
   data = null
 }) => {
   const promise = new Promise((resolve, reject) => {
     axios({
-      method: 'post',
+      method,
       url,
       data
     }).then(res => {
       const {
-        errno,
-        data
+        code,
+        msg
       } = res.data
-      if (errno !== 0) {
+      if (code !== 200) {
         return reject(new Error('请求失败'))
       }
-      return resolve(data || {})
+      return resolve(msg || {})
     }).catch(err => {
       console.error('request error: %s', err)
       reject(err)

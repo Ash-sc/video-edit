@@ -7,7 +7,7 @@
         :class="!list.length && !list2.length ? 'no-content' : ''"
         size="mini"
         v-model="videoUrl"
-        placeholder="请输入视频url地址"
+        placeholder="请输入url地址，暂时只支持youtube页面"
       >
         <el-button slot="append" icon="el-icon-search" @click="commitLink"></el-button>
       </el-input>
@@ -29,9 +29,9 @@
                   class="list-group-item"
                   v-for="ele in getList"
                   :key="ele.id"
-                  :style="{ backgroundImage: `url(${ele.image})`, opacity: ele.id === 'xxx' ? 0 : 1 }"
+                  :style="{ backgroundImage: `url(${ele.cover})`, opacity: ele.id === 'xxx' ? 0 : 1 }"
                 >
-                  <i class="el-icon-caret-right" @click.stop="playVideo(ele.video)"></i>
+                  <i class="el-icon-caret-right" @click.stop="playVideo(ele.url)"></i>
                 </li>
               </transition-group>
             </draggable>
@@ -52,9 +52,9 @@
                   class="list-group-item"
                   v-for="ele in getList2"
                   :key="ele.id"
-                  :style="{ backgroundImage: `url(${ele.image})`, opacity: ele.id === 'xxx' ? 0 : 1 }"
+                  :style="{ backgroundImage: `url(${ele.cover})`, opacity: ele.id === 'xxx' ? 0 : 1 }"
                 >
-                  <i class="el-icon-caret-right" @click.stop="playVideo(ele.video)"></i>
+                  <i class="el-icon-caret-right" @click.stop="playVideo(ele.url)"></i>
                 </li>
               </transition-group>
             </draggable>
@@ -101,7 +101,8 @@ export default {
         disabled: false,
         ghostClass: 'ghost'
       },
-      message: ''
+      message: '',
+      transitionId: ''
     }
   },
 
@@ -122,24 +123,48 @@ export default {
         return false
       }
       this.currentPlay = ''
-      this.message = this.$message({
-        message: '视频分析中...',
-        type: 'info',
-        duration: 1000 * 60 * 10
-      })
       xhr({
-        url: '/api/analysisVideo',
+        url: 'http://101.132.46.62:9663/transitions',
         data: {
           url: this.videoUrl
         }
       }).then(data => {
-        this.list = data
-        this.$message.success('分析视频资源成功')
-        this.message.close()
+        this.transitionId = data.id
+        this.getTransitionStatus()
       }).catch(err => {
         console.error(err)
-        this.$message.error('分析视频资源失败')
-        this.message.close()
+      })
+    },
+    getTransitionStatus() {
+      const { transitionId } = this
+      xhr({
+        url: `http://101.132.46.62:9663/transitions/slice?id=${transitionId}`,
+        method: 'get',
+      }).then(res => {
+        const { status, slices } = res
+        if (res.status === 'processing' && slices && slices.length) {
+          this.message && this.message.close()
+          this.list = slices
+        } else if (res.status === 'failed') {
+          this.message && this.message.close()
+          this.list = []
+          this.$message.error('视频切片失败，请稍后再试...')
+        } else {
+          if (!this.message) {
+            this.message = this.$message({
+              message: '视频切片中，大概需要花费与视频时长相同时间...',
+              type: 'info',
+              duration: 1000 * 60 * 10
+            })
+          }
+          setTimeout(() => {
+            this.getTransitionStatus()
+          }, 5000)
+        }
+      }).catch(err => {
+        this.message && this.message.close()
+        this.$message.error('视频切片失败，请稍后再试...')
+        console.error(err)
       })
     },
     onMove ({ relatedContext, draggedContext }) {
@@ -159,13 +184,13 @@ export default {
         duration: 1000 * 60 * 10
       })
       xhr({
-        url: '/api/downloadVideo',
+        url: 'http://101.132.46.62:9663/concat',
         data: {
-          list: this.list2.map(item => item.id).filter(item => item)
+          videos: this.list2.map(item => item.id).filter(item => item)
         }
       }).then(data => {
         const aLink = document.querySelector('#download-video')
-        aLink.setAttribute('href', data)
+        aLink.setAttribute('href', data.url)
         aLink.click()
         this.message.close()
       }).catch(err => {
