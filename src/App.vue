@@ -14,7 +14,16 @@
       <div class="image-and-video" v-if="list.length || list2.length">
         <div class="image-section">
           <div class="unselected-image">
-            <p class="section-title">视频片段：</p>
+            <p class="section-title">
+              视频片段：
+              <el-button
+                size="mini"
+                @click="selectAll"
+                v-show="list.length"
+              >
+                <i class="el-icon-circle-plus"></i> all
+              </el-button>
+            </p>
             <draggable
               class="list-group"
               tag="ul"
@@ -27,9 +36,9 @@
               <transition-group type="transition" :name="'flip-list'">
                 <li
                   class="list-group-item"
-                  v-for="ele in getList"
-                  :key="ele.id"
-                  :style="{ backgroundImage: `url(${ele.cover})`, opacity: ele.id === 'xxx' ? 0 : 1 }"
+                  v-for="(ele, i) in list"
+                  :key="i"
+                  :style="{ backgroundImage: `url(${ele.cover})` }"
                 >
                   <i class="el-icon-caret-right" @click.stop="playVideo(ele.url)"></i>
                 </li>
@@ -44,17 +53,18 @@
               v-model="list2"
               v-bind="dragOptions"
               :move="onMove"
-              @start="isDragging = true"
+              @start="dragStart"
               @end="isDragging = false"
             >
               <transition-group type="transition" :name="'flip-list'">
                 <li
                   class="list-group-item"
-                  v-for="ele in getList2"
-                  :key="ele.id"
-                  :style="{ backgroundImage: `url(${ele.cover})`, opacity: ele.id === 'xxx' ? 0 : 1 }"
+                  v-for="(ele, i) in list2"
+                  :key="i"
+                  :style="{ backgroundImage: `url(${ele.cover})` }"
                 >
                   <i class="el-icon-caret-right" @click.stop="playVideo(ele.url)"></i>
+                  <i class="el-icon-circle-close" @click.stop="removeVideo(i)"></i>
                 </li>
               </transition-group>
             </draggable>
@@ -69,7 +79,7 @@
         @click="downloadVideo"
         type="primary"
         size="mini"
-        v-show="this.list2.length"
+        v-show="list2.length"
         class="download-btn"
       >下载视频</el-button>
       <a href="" download="download" id="download-video" target="_blank">download</a>
@@ -78,14 +88,12 @@
 </template>
 
 <script>
-// import VideoPlay from './components/video-play'
 import Draggable from 'vuedraggable'
 import xhr from './service/axios'
 
 export default {
   name: 'app',
   components: {
-    // VideoPlay,
     Draggable
   },
   data () {
@@ -94,6 +102,7 @@ export default {
       currentPlay: '',
       isDragging: false,
       list: [],
+      listCache: [],
       list2: [],
       dragOptions: {
         animation: 0,
@@ -106,12 +115,12 @@ export default {
     }
   },
 
-  computed: {
-    getList () {
-      return this.list.length ? this.list : [{ id: 'xxx' }]
-    },
-    getList2 () {
-      return this.list2.length ? this.list2 : [{ id: 'xxx' }]
+  watch: {
+    list2: {
+      handler(val) {
+        this.list = [ ...this.listCache ]
+      },
+      deep: true
     }
   },
 
@@ -135,37 +144,42 @@ export default {
         console.error(err)
       })
     },
-    getTransitionStatus() {
+    getTransitionStatus () {
       const { transitionId } = this
       xhr({
         url: `http://101.132.46.62:9663/transitions/slice?id=${transitionId}`,
         method: 'get',
       }).then(res => {
-        const { status, slices } = res
-        if (res.status === 'processing' && slices && slices.length) {
+        const { status, slices = [] } = res
+
+        if (['processing', 'finished', 'failed'].includes(status)) {
           this.message && this.message.close()
           this.list = slices
-        } else if (res.status === 'failed') {
-          this.message && this.message.close()
-          this.list = []
-          this.$message.error('视频切片失败，请稍后再试...')
-        } else {
-          if (!this.message) {
-            this.message = this.$message({
-              message: '视频切片中，大概需要花费与视频时长相同时间...',
-              type: 'info',
-              duration: 1000 * 60 * 10
-            })
-          }
-          setTimeout(() => {
-            this.getTransitionStatus()
-          }, 5000)
+          this.listCache = slices
         }
+        if (res.status === 'finished') {
+          return true
+        } else if (res.status === 'failed') {
+          this.$message.error('视频切片失败，请稍后再试...')
+          return false
+        } else if (!this.message) {
+          this.message = this.$message({
+            message: '视频切片中，大概需要花费与视频时长相同时间...',
+            type: 'info',
+            duration: 1000 * 60 * 10
+          })
+        }
+        setTimeout(() => {
+          this.getTransitionStatus()
+        }, 5000)
       }).catch(err => {
         this.message && this.message.close()
         this.$message.error('视频切片失败，请稍后再试...')
         console.error(err)
       })
+    },
+    selectAll () {
+      this.list2.push( ...this.list)
     },
     onMove ({ relatedContext, draggedContext }) {
       const relatedElement = relatedContext.element
@@ -174,8 +188,15 @@ export default {
         (!relatedElement || !relatedElement.fixed) && !draggedElement.fixed
       )
     },
+    dragStart (item, index) {
+      this.isDragging = true
+
+    },
     playVideo (link) {
       this.currentPlay = link
+    },
+    removeVideo (index) {
+      this.list2.splice(index, 1)
     },
     downloadVideo () {
       this.message = this.$message({
@@ -250,6 +271,12 @@ export default {
 
   .list-group {
     min-height: 83px;
+
+    > span {
+      display: inline-block;
+      min-height: 60px;
+      min-width: 100%;
+    }
   }
 
   .list-group-item {
@@ -279,6 +306,30 @@ export default {
       text-align: center;
       border-radius: 24px;
       cursor: pointer;
+    }
+  }
+
+  .el-icon-circle-close {
+    position: absolute;
+    right: -6px;
+    top: -6px;
+    color: #8f8f8f;
+    cursor: pointer;
+    background: #fff;
+    &:hover {
+      color: #5cb6ff;
+    }
+  }
+
+  .select-all {
+    cursor: pointer;
+    text-align: center;
+    line-height: 58px;
+    vertical-align: top;
+    font-size: 18px;
+    color: #8f8f8f;
+    &:hover {
+      color: #5cb6ff;
     }
   }
 
