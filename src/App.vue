@@ -139,6 +139,8 @@ export default {
         }
       }).then(data => {
         this.transitionId = data.id
+        this.list = []
+        this.listCache = []
         this.getTransitionStatus()
       }).catch(err => {
         console.error(err)
@@ -153,13 +155,18 @@ export default {
         const { status, slices = [] } = res
 
         if (['processing', 'finished', 'failed'].includes(status)) {
-          this.message && this.message.close()
-          this.list = slices
-          this.listCache = slices
+          const lastId = this.list.length ? this.list[this.list.length - 1].id : null
+          const index = (lastId && slices.length) ?
+            slices.findIndex(item => item.id === lastId) :
+            0
+          this.list.push(...slices.slice(index + 1))
+          this.listCache.push(...slices.slice(index + 1))
         }
         if (res.status === 'finished') {
+          this.message && this.message.close()
           return true
         } else if (res.status === 'failed') {
+          this.message && this.message.close()
           this.$message.error('视频切片失败，请稍后再试...')
           return false
         } else if (!this.message) {
