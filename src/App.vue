@@ -158,7 +158,7 @@ export default {
           const lastId = this.list.length ? this.list[this.list.length - 1].id : null
           const index = (lastId && slices.length) ?
             slices.findIndex(item => item.id === lastId) :
-            0
+            -1
           this.list.push(...slices.slice(index + 1))
           this.listCache.push(...slices.slice(index + 1))
         }
