@@ -1,5 +1,10 @@
 <template>
-  <div id="app">
+  <div
+    id="app"
+    v-loading.fullscreen="loading"
+    element-loading-spinner="el-icon-loading"
+    element-loading-background="rgba(111, 111, 111, 0.2)"
+  >
     <div class="nav"></div>
     <section class="main-content">
       <el-input
@@ -8,6 +13,7 @@
         size="mini"
         v-model="videoUrl"
         placeholder="请输入url地址，暂时只支持youtube页面"
+        @keyup.enter.native="commitLink"
       >
         <el-button slot="append" icon="el-icon-search" @click="commitLink"></el-button>
       </el-input>
@@ -21,7 +27,7 @@
                 @click="selectAll"
                 v-show="list.length"
               >
-                <i class="el-icon-circle-plus"></i> all
+                <i class="el-icon-circle-plus"></i> 全选
               </el-button>
             </p>
             <draggable
@@ -69,19 +75,32 @@
               </transition-group>
             </draggable>
           </div>
+          <el-button
+            @click="mergeVideo"
+            type="primary"
+            size="mini"
+            v-show="list2.length"
+            class="download-btn"
+          >合成视频</el-button>
         </div>
         <div class="video-play">
           <video :src="currentPlay" class="video-section" controls autoplay v-show="currentPlay"></video>
           <div class="video-section no-video" v-show="!currentPlay">请从左侧选择需要播放的视频片段</div>
+          <p class="section-title" style="margin: 10px 0;" v-show="downloadList.length">任务队列：</p>
+          <ul>
+            <li
+              v-for="(item, index) in downloadList"
+              :key="item.url"
+              class="download-link"
+              :class="'download-status-' + item.status"
+            >
+              视频 {{ index + 1 }} - ( {{ videoStatus[item.status] || '-' }} )
+              <i class="el-icon-download" @click="downloadLink(item.url)"></i>
+              <i class="el-icon-caret-right" @click="playVideo(item.url)"></i>
+            </li>
+          </ul>
         </div>
       </div>
-      <el-button
-        @click="downloadVideo"
-        type="primary"
-        size="mini"
-        v-show="list2.length"
-        class="download-btn"
-      >下载视频</el-button>
       <a href="" download="download" id="download-video" target="_blank">download</a>
     </section>
   </div>
@@ -98,6 +117,7 @@ export default {
   },
   data () {
     return {
+      loading: false,
       videoUrl: '',
       currentPlay: '',
       isDragging: false,
@@ -111,7 +131,13 @@ export default {
         ghostClass: 'ghost'
       },
       message: '',
-      transitionId: ''
+      transitionId: '',
+      downloadList: [],
+      videoStatus: {
+        'splicing': '合成中...',
+        'success': '合成成功',
+        'fail': '合成失败',
+      }
     }
   },
 
@@ -132,6 +158,7 @@ export default {
         return false
       }
       this.currentPlay = ''
+      this.loading = true
       xhr({
         url: 'http://101.132.46.62:9663/transitions',
         data: {
@@ -144,6 +171,7 @@ export default {
         this.getTransitionStatus()
       }).catch(err => {
         console.error(err)
+        this.loading = false
       })
     },
     getTransitionStatus () {
@@ -164,10 +192,12 @@ export default {
         }
         if (res.status === 'finished') {
           this.message && this.message.close()
+          this.loading = false
           return true
         } else if (res.status === 'failed') {
           this.message && this.message.close()
           this.$message.error('视频切片失败，请稍后再试...')
+          this.loading = false
           return false
         } else if (!this.message) {
           this.message = this.$message({
@@ -205,27 +235,45 @@ export default {
     removeVideo (index) {
       this.list2.splice(index, 1)
     },
-    downloadVideo () {
-      this.message = this.$message({
-        message: '视频组合中...',
-        type: 'info',
-        duration: 1000 * 60 * 10
+    mergeVideo () {
+      const videos = this.list2.map(item => item.id).filter(item => item)
+      const videosString = videos.toString()
+      if (!videos.length) return this.$message.error('没有找到已选择的片段id，请重新选择')
+      if (this.downloadList.some(item => item.videos === videosString)) {
+        return this.$message.error('该合成任务已在队列中，请勿重复提交')
+      }
+
+      this.downloadList.push({
+        videos: videosString,
+        status: 'splicing',
+        url: ''
       })
+
       xhr({
         url: 'http://101.132.46.62:9663/concat',
         data: {
           videos: this.list2.map(item => item.id).filter(item => item)
         }
       }).then(data => {
-        const aLink = document.querySelector('#download-video')
-        aLink.setAttribute('href', data.url)
-        aLink.click()
-        this.message.close()
+        const downloadInfo = this.downloadList.find(info => info.videos === videosString)
+        if (!downloadInfo) return this.$message.error('合成视频失败')
+        downloadInfo.url = data.url
+        downloadInfo.status = 'success'
+        this.$forceUpdate()
+        this.$message.success('合成视频成功')
       }).catch(err => {
         console.error(err)
-        this.$message.error('下载视频失败')
-        this.message.close()
+        const downloadInfo = this.downloadList.find(info => info.videos === videosString)
+        if (!downloadInfo) return this.$message.error('合成视频失败')
+        downloadInfo.status = 'fail'
+        this.$message.error('合成视频失败')
+        this.$forceUpdate()
       })
+    },
+    downloadLink (link) {
+      const aLink = document.querySelector('#download-video')
+      aLink.setAttribute('href', link)
+      aLink.click()
     }
   }
 }
@@ -237,6 +285,10 @@ export default {
 }
 .main-content {
   margin: 20px;
+
+  .section-title {
+    margin-bottom: 20px;
+  }
 
   .search-input {
     width: 60vw;
@@ -265,9 +317,6 @@ export default {
     }
     .selected-image {
       margin-top: 20px;
-    }
-    .section-title {
-      margin-bottom: 20px;
     }
     .video-play {
       position: sticky;
@@ -366,5 +415,59 @@ export default {
 }
 .download-btn {
   margin: 20px 0;
+}
+
+.download-link {
+  height: 28px;
+  line-height: 26px;
+  padding: 0 10px;
+  border: 1px solid #eee;
+  margin-top: 10px;
+  border-radius: 4px;
+
+  .el-icon-caret-right,
+  .el-icon-download {
+    float: right;
+    margin: 7px 10px 0 0;
+    color: #6cb4ff;
+    cursor: pointer;
+  }
+}
+.download-status-splicing,
+.download-status-fail {
+  .el-icon-caret-right,
+  .el-icon-download {
+    display: none;
+  }
+}
+
+.download-status-success {
+  color: #67C23A;
+  border-color: #e1f3d8;
+  background-color: #f5f9f3;
+}
+
+.download-status-fail {
+  color: #F56C6C;
+  border-color: #fde2e2;
+  background-color: #fdf2f2;
+}
+
+@keyframes bg1 {
+  0% {
+    background: #f3faff;
+  }
+  50% {
+    background: #cae9ff;
+  }
+  100% {
+    background: #f3faff;
+  }
+}
+
+.download-status-splicing {
+  border-color: #b0d8f9;
+  background: #f3faff;
+  animation: bg1 2.5s linear infinite;
 }
 </style>
