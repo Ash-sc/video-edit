@@ -203,7 +203,7 @@ export default {
           this.message = this.$message({
             message: '视频切片中，大概需要花费与视频时长相同时间...',
             type: 'info',
-            duration: 1000 * 60 * 10
+            duration: 1000 * 60 * 100
           })
         }
         setTimeout(() => {
