@@ -82,10 +82,32 @@
             v-show="list2.length"
             class="download-btn"
           >合成视频</el-button>
+          <el-checkbox
+            class="watermark-checkbox"
+            v-show="list2.length"
+            v-model="watermark.show"
+          >水印遮盖</el-checkbox>
         </div>
         <div class="video-play">
           <video :src="currentPlay" class="video-section" controls autoplay v-show="currentPlay"></video>
           <div class="video-section no-video" v-show="!currentPlay">请从左侧选择需要播放的视频片段</div>
+          <div
+            class="video-watermark"
+            v-show="watermark.show"
+          >
+            <div
+              class="water-mark-filter"
+              :style="watermarkStyle"
+              @mousedown="e =>setMoveWatermark(e, 'move')"
+              @mouseup="e => setMoveWatermark(e, false)"
+            >
+              <i
+                class="resize-btn"
+                @mousedown.stop="e =>setMoveWatermark(e, 'resize')"
+                @mouseup="e => setMoveWatermark(e, false)"
+              ></i>
+            </div>
+          </div>
           <p class="section-title" style="margin: 10px 0;" v-show="downloadList.length">任务队列：</p>
           <ul>
             <li
@@ -137,6 +159,26 @@ export default {
         'splicing': '合成中...',
         'success': '合成成功',
         'fail': '合成失败',
+      },
+      moveWatermark: false,
+      currentCursor: {
+        x: 0,
+        y: 0
+      },
+      watermark: {
+        show: false,
+        size: {
+          width: 80,
+          height: 28
+        },
+        position: {
+          top: 20,
+          left: 20
+        },
+        videoSize: {
+          width: 600,
+          height: 338
+        }
       }
     }
   },
@@ -147,6 +189,19 @@ export default {
         this.list = [ ...this.listCache ]
       },
       deep: true
+    }
+  },
+
+  computed: {
+    watermarkStyle () {
+      const { watermark: { size: { width, height }, position: { top, left } } } = this
+      return {
+        width: width + 'px',
+        height: height + 'px',
+        lineHeight: height - 2 + 'px',
+        top: top + 'px',
+        left: left + 'px',
+      }
     }
   },
 
@@ -235,6 +290,50 @@ export default {
     removeVideo (index) {
       this.list2.splice(index, 1)
     },
+    setMoveWatermark (e, type) {
+      this.moveWatermark = type
+      this.currentCursor = {
+        x: e.screenX,
+        y: e.screenY
+      }
+    },
+    movingWatermark (e) {
+      if (!this.moveWatermark) return false
+      const { watermark, currentCursor, moveWatermark } = this
+      if (moveWatermark === 'move') {
+        let left = watermark.position.left - (currentCursor.x - e.screenX)
+        let top = watermark.position.top - (currentCursor.y - e.screenY)
+        if (left < 0) left = 0
+        if (top < 0) top = 0
+        if (left + watermark.size.width > 600) left = 600 - watermark.size.width
+        if (top + watermark.size.height > 338) top = 338 - watermark.size.height
+        this.watermark = {
+          ...watermark,
+          position: {
+            left,
+            top
+          }
+        }
+      } else if (moveWatermark === 'resize') {
+        let width = watermark.size.width - (currentCursor.x - e.screenX)
+        let height = watermark.size.height - (currentCursor.y - e.screenY)
+        if (width < 20) width = 20
+        if (height < 20) height = 20
+        if (width + watermark.position.left > 600) width = 600 - watermark.position.left
+        if (height + watermark.position.top > 338) height = 338 - watermark.position.top
+        this.watermark = {
+          ...watermark,
+          size: {
+            width,
+            height
+          }
+        }
+      }
+      this.currentCursor = {
+        x: e.screenX,
+        y: e.screenY
+      }
+    },
     mergeVideo () {
       const videos = this.list2.map(item => item.id).filter(item => item)
       const videosString = videos.toString()
@@ -249,11 +348,15 @@ export default {
         url: ''
       })
 
+      const mergeData = {
+        videos: this.list2.map(item => item.id).filter(item => item)
+      }
+      const { watermark } = this
+      if (watermark.show) mergeData.watermark = watermark
+
       xhr({
         url: 'http://101.132.46.62:9663/concat',
-        data: {
-          videos: this.list2.map(item => item.id).filter(item => item)
-        }
+        data: mergeData
       }).then(data => {
         const downloadInfo = this.downloadList.find(info => info.videos === videosString)
         if (!downloadInfo) return this.$message.error('合成视频失败')
@@ -262,7 +365,6 @@ export default {
         this.$forceUpdate()
         this.$message.success('合成视频成功')
       }).catch(err => {
-        console.error(err)
         const downloadInfo = this.downloadList.find(info => info.videos === videosString)
         if (!downloadInfo) return this.$message.error('合成视频失败')
         downloadInfo.status = 'fail'
@@ -275,6 +377,15 @@ export default {
       aLink.setAttribute('href', link)
       aLink.click()
     }
+  },
+
+  mounted () {
+    document.body.addEventListener('mousemove', e => {
+      this.movingWatermark(e)
+    })
+    document.body.addEventListener('mouseup', () => {
+      this.moveWatermark = false
+    })
   }
 }
 </script>
@@ -319,9 +430,38 @@ export default {
       margin-top: 20px;
     }
     .video-play {
-      position: sticky;
-      top: 50px;
+      position: relative;
       width: 600px;
+    }
+    .video-section {
+      width: 100%;
+      height: 338px;
+      position: relative;
+    }
+    .video-watermark {
+      position: absolute;
+      width: 100%;
+      height: 338px;
+      top: 0;
+      pointer-events: none;
+    }
+    .water-mark-filter {
+      position: absolute;
+      pointer-events: visible;
+      background-color: rgba(255,255,255, .5);
+      text-align: center;
+      border: 1px dashed #dadada;
+      cursor: all-scroll;
+    }
+    .resize-btn {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      bottom: -3px;
+      right: -3px;
+      background-color: #fff;
+      border: 1px solid #dadada;
+      cursor: nwse-resize;
     }
   }
 
@@ -404,6 +544,7 @@ export default {
     line-height: 336px;
     text-align: center;
     color: #999;
+    user-select: none;
   }
 }
 #download-video {
@@ -415,6 +556,9 @@ export default {
 }
 .download-btn {
   margin: 20px 0;
+}
+.watermark-checkbox {
+  margin-left: 20px;
 }
 
 .download-link {
