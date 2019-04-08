@@ -147,15 +147,7 @@ export default {
       isDragging: false,
       list: [],
       listCache: [],
-      list2: [
-        {id: 1, cover: 'xxx1', url: 'xxx1'},
-        {id: 2, cover: 'xxx2', url: 'xxx2'},
-        {id: 3, cover: 'xxx3', url: 'xxx3'},
-        {id: 4, cover: 'xxx4', url: 'xxx4'},
-        {id: 5, cover: 'xxx5', url: 'xxx5'},
-        {id: 6, cover: 'xxx6', url: 'xxx6'},
-        {id: 7, cover: 'xxx7', url: 'xxx7'},
-      ],
+      list2: [],
       dragOptions: {
         animation: 0,
         group: 'description',
@@ -479,9 +471,12 @@ export default {
     }
   }
 
+  .selected-image .list-group {
+    white-space: nowrap;
+  }
+
   .list-group {
     min-height: 83px;
-    white-space: nowrap;
 
     > span {
       display: inline-block;
