@@ -397,7 +397,7 @@ export default {
   background-image: linear-gradient(90deg, #3699ff, #72b8ff);
 }
 .main-content {
-  margin: 20px;
+  margin: 20px 20px 0 20px;
 
   .section-title {
     margin-bottom: 20px;
@@ -424,6 +424,10 @@ export default {
       flex: 1;
       max-width: calc(~'100vw - 640px');
       margin-right: 20px;
+    }
+    .unselected-image {
+      max-height: calc(~'100vh - 340px');
+      overflow: auto;
     }
     .unselected-image,
     .selected-image {
