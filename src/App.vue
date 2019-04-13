@@ -217,7 +217,7 @@ export default {
       this.currentPlay = ''
       this.loading = true
       xhr({
-        url: 'http://101.132.46.62:9663/transitions',
+        url: '/transitions',
         data: {
           url: this.videoUrl
         }
@@ -234,7 +234,7 @@ export default {
     getTransitionStatus () {
       const { transitionId } = this
       xhr({
-        url: `http://101.132.46.62:9663/transitions/slice?id=${transitionId}`,
+        url: `/transitions/slice?id=${transitionId}`,
         method: 'get',
       }).then(res => {
         const { status, slices = [] } = res
@@ -357,7 +357,7 @@ export default {
       if (watermark.show) mergeData.watermark = watermark
 
       xhr({
-        url: 'http://101.132.46.62:9663/concat',
+        url: '/concat',
         data: mergeData
       }).then(data => {
         const downloadInfo = this.downloadList.find(info => info.videos === videosString)

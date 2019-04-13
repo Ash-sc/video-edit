@@ -9,7 +9,7 @@ const xhr = ({
   const promise = new Promise((resolve, reject) => {
     axios({
       method,
-      url,
+      url: 'http://47.99.169.90:9663' + url,
       data
     }).then(res => {
       const {
