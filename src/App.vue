@@ -116,7 +116,7 @@
               v-for="(item, index) in downloadList"
               :key="item.url"
               class="download-link"
-              :class="`download-status-${item.status} ${ele.url === currentPlay ? 'playing' : ''}`"
+              :class="`download-status-${item.status} ${item.url === currentPlay ? 'playing' : ''}`"
             >
               视频 {{ index + 1 }} - ( {{ videoStatus[item.status] || '-' }} )
               <i class="el-icon-download" @click="downloadLink(item.url)"></i>
