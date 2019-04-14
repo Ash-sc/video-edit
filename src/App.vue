@@ -351,10 +351,9 @@ export default {
       })
 
       const mergeData = {
-        videos: this.list2.map(item => item.id).filter(item => item)
+        videos: this.list2.map(item => item.id).filter(item => item),
+        watermark: this.watermark
       }
-      const { watermark } = this
-      if (watermark.show) mergeData.watermark = watermark
 
       xhr({
         url: '/concat',
